@@ -1,4 +1,4 @@
-package ru.practicum.shareit.user.dto;
+package ru.practicum.shareit.user.persistance.entity;
 
 public class UserDtoMapper {
     private UserDtoMapper() {

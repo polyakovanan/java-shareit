@@ -7,9 +7,9 @@ import org.springframework.test.annotation.DirtiesContext;
 import ru.practicum.shareit.ShareItApp;
 import ru.practicum.shareit.exception.ConditionsNotMetException;
 import ru.practicum.shareit.exception.NotFoundException;
-import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.persistance.entity.ItemDto;
 import ru.practicum.shareit.user.UserController;
-import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.persistance.entity.UserDto;
 
 import static org.junit.jupiter.api.Assertions.*;
 

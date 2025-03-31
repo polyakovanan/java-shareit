@@ -4,40 +4,40 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.exception.DuplicatedDataException;
 import ru.practicum.shareit.exception.NotFoundException;
-import ru.practicum.shareit.user.dto.User;
-import ru.practicum.shareit.user.dto.UserDto;
-import ru.practicum.shareit.user.dto.UserDtoMapper;
+import ru.practicum.shareit.user.persistance.entity.User;
+import ru.practicum.shareit.user.persistance.entity.UserDto;
+import ru.practicum.shareit.user.persistance.entity.UserDtoMapper;
+import ru.practicum.shareit.user.persistance.repository.UserRepository;
 
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-    private final Map<Long, User> userStorage = new HashMap<>();
-    private Long currentId = 0L;
+    private final UserRepository userRepository;
     private static final String NOT_FOUND_USER = "Пользователь не найден";
 
     public UserDto findById(Long id) {
-        if (!userStorage.containsKey(id)) {
+        Optional<User> user = userRepository.findById(id);
+        if (user.isEmpty()) {
             throw new NotFoundException(NOT_FOUND_USER);
         }
-        return UserDtoMapper.toUserDto(userStorage.get(id));
+        return UserDtoMapper.toUserDto(user.get());
     }
 
     public UserDto create(UserDto userDto) {
         User user = UserDtoMapper.toUser(userDto);
         validate(user);
-        userStorage.put(++currentId, user);
-        user.setId(currentId);
-        return UserDtoMapper.toUserDto(user);
+        return UserDtoMapper.toUserDto(userRepository.saveAndFlush(user));
     }
 
     public UserDto update(Long id, UserDto userDto) {
-        if (!userStorage.containsKey(id)) {
+        Optional<User> userOptional = userRepository.findById(id);
+        if (userOptional.isEmpty()) {
             throw new NotFoundException(NOT_FOUND_USER);
         }
 
-        User user = userStorage.get(id);
+        User user = userOptional.get();
         if (userDto.getName() != null) {
             user.setName(userDto.getName());
         }
@@ -46,23 +46,21 @@ public class UserServiceImpl implements UserService {
         }
 
         validate(user);
-        userStorage.put(user.getId(), user);
+        userRepository.saveAndFlush(user);
         return UserDtoMapper.toUserDto(user);
     }
 
     public void delete(Long id) {
-        if (!userStorage.containsKey(id)) {
+        Optional<User> user = userRepository.findById(id);
+        if (user.isEmpty()) {
             throw new NotFoundException(NOT_FOUND_USER);
         }
-        userStorage.remove(id);
+        userRepository.deleteById(id);
     }
 
     private void validate(User user) throws DuplicatedDataException {
-        if (userStorage.values().stream()
-                .anyMatch(u -> u.getEmail().equals(user.getEmail()) && !Objects.equals(u.getId(), user.getId()))) {
+        if (!userRepository.findAllByEmailAndIdNot(user.getEmail(), user.getId()).isEmpty()) {
             throw new DuplicatedDataException("Этот email уже используется");
         }
-
-
     }
 }

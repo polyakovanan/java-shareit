@@ -7,7 +7,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import ru.practicum.shareit.ShareItApp;
 import ru.practicum.shareit.exception.DuplicatedDataException;
 import ru.practicum.shareit.exception.NotFoundException;
-import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.persistance.entity.UserDto;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;

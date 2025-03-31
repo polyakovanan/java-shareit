@@ -1,6 +1,6 @@
 package ru.practicum.shareit.user;
 
-import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.persistance.entity.UserDto;
 
 public interface UserService {
     UserDto findById(Long id);
