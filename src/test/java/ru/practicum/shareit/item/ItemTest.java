@@ -6,7 +6,7 @@ import jakarta.validation.Validator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import ru.practicum.shareit.item.persistance.entity.ItemDto;
+import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDto;
 
 import java.util.Set;
 
