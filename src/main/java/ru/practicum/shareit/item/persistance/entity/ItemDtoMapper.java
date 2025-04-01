@@ -1,5 +1,7 @@
 package ru.practicum.shareit.item.persistance.entity;
 
+import ru.practicum.shareit.user.persistance.entity.User;
+
 public class ItemDtoMapper {
     private ItemDtoMapper() {
 
@@ -14,13 +16,13 @@ public class ItemDtoMapper {
                 .build();
     }
 
-    public static Item toItem(ItemDto itemDto, Long ownerId) {
+    public static Item toItem(ItemDto itemDto, User owner) {
         return Item.builder()
                 .id(itemDto.getId())
                 .name(itemDto.getName())
                 .description(itemDto.getDescription())
                 .available(itemDto.getAvailable())
-                .owner(ownerId)
+                .owner(owner)
                 .build();
     }
 }

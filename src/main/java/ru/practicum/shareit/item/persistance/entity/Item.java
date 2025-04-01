@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import ru.practicum.shareit.user.persistance.entity.User;
 
 @Data
 @Builder
@@ -26,8 +27,8 @@ public class Item {
     @Column(name = "available", nullable = false)
     private Boolean available;
 
-    @Column(name = "owner_id", nullable = false)
-    private Long owner;
+    @ManyToOne
+    private User owner;
 
     @Column(name = "request_id", nullable = false)
     private Long request;

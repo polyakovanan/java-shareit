@@ -19,10 +19,7 @@ public class UserServiceImpl implements UserService {
 
     public UserDto findById(Long id) {
         Optional<User> user = userRepository.findById(id);
-        if (user.isEmpty()) {
-            throw new NotFoundException(NOT_FOUND_USER);
-        }
-        return UserDtoMapper.toUserDto(user.get());
+        return UserDtoMapper.toUserDto(user.orElseThrow(()  -> new NotFoundException(NOT_FOUND_USER)));
     }
 
     public UserDto create(UserDto userDto) {
@@ -33,11 +30,8 @@ public class UserServiceImpl implements UserService {
 
     public UserDto update(Long id, UserDto userDto) {
         Optional<User> userOptional = userRepository.findById(id);
-        if (userOptional.isEmpty()) {
-            throw new NotFoundException(NOT_FOUND_USER);
-        }
+        User user = userOptional.orElseThrow(() -> new NotFoundException(NOT_FOUND_USER));
 
-        User user = userOptional.get();
         if (userDto.getName() != null) {
             user.setName(userDto.getName());
         }
@@ -52,9 +46,7 @@ public class UserServiceImpl implements UserService {
 
     public void delete(Long id) {
         Optional<User> user = userRepository.findById(id);
-        if (user.isEmpty()) {
-            throw new NotFoundException(NOT_FOUND_USER);
-        }
+        user.orElseThrow(() -> new NotFoundException(NOT_FOUND_USER));
         userRepository.deleteById(id);
     }
 

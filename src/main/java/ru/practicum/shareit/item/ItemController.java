@@ -41,7 +41,6 @@ public class ItemController {
     @ResponseStatus(HttpStatus.CREATED)
     public ItemDto create(@RequestBody @Valid ItemDto item,
                           @RequestHeader("X-Sharer-User-Id") Long userId) {
-        userService.findById(userId);
         return itemService.create(item, userId);
     }
 

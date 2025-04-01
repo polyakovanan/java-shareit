@@ -8,6 +8,8 @@ import ru.practicum.shareit.item.persistance.entity.Item;
 import ru.practicum.shareit.item.persistance.entity.ItemDto;
 import ru.practicum.shareit.item.persistance.entity.ItemDtoMapper;
 import ru.practicum.shareit.item.persistance.repository.ItemRepository;
+import ru.practicum.shareit.user.persistance.entity.User;
+import ru.practicum.shareit.user.persistance.repository.UserRepository;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,11 +18,12 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ItemServiceImpl implements ItemService {
     private final ItemRepository itemRepository;
+    private final UserRepository userRepository;
     private static final String NOT_FOUND_ITEM = "Предмет не найден";
 
     @Override
     public List<ItemDto> findAllOwned(Long ownerId) {
-        return itemRepository.findAllByOwner(ownerId).stream()
+        return itemRepository.findAllByOwnerId(ownerId).stream()
                 .map(ItemDtoMapper::toItemDto)
                 .toList();
     }
@@ -28,28 +31,22 @@ public class ItemServiceImpl implements ItemService {
     @Override
     public ItemDto findById(Long itemId) {
         Optional<Item> item = itemRepository.findById(itemId);
-        if (item.isEmpty()) {
-            throw new NotFoundException(NOT_FOUND_ITEM);
-        }
-
-        return ItemDtoMapper.toItemDto(item.get());
+        return ItemDtoMapper.toItemDto(item.orElseThrow(() -> new NotFoundException(NOT_FOUND_ITEM)));
     }
 
     @Override
     public ItemDto create(ItemDto itemDto, Long userId) {
-        Item item = ItemDtoMapper.toItem(itemDto, userId);
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        Item item = ItemDtoMapper.toItem(itemDto, user);
         return ItemDtoMapper.toItemDto(itemRepository.saveAndFlush(item));
     }
 
     @Override
     public ItemDto update(Long id, ItemDto itemDto, Long userId) {
         Optional<Item> itemOptional = itemRepository.findById(id);
-        if (itemOptional.isEmpty()) {
-            throw new NotFoundException(NOT_FOUND_ITEM);
-        }
+        Item item = itemOptional.orElseThrow(() -> new NotFoundException(NOT_FOUND_ITEM));
 
-        Item item = itemOptional.get();
-        if (!item.getOwner().equals(userId)) {
+        if (!item.getOwner().getId().equals(userId)) {
             throw new ConditionsNotMetException("Пользователь не владелец предмета");
         }
 
