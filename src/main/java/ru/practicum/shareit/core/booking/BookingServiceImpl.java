@@ -30,12 +30,10 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingOutDto create(BookingInDto bookingDto, Long userId) {
-        Optional<Item> item = itemRepository.findById(bookingDto.getItemId());
-        Optional<User> booker = userRepository.findById(userId);
+        Item item = itemRepository.findById(bookingDto.getItemId()).orElseThrow(() -> new NotFoundException(NOT_FOUND_ITEM));
+        User booker = userRepository.findById(userId).orElseThrow(() -> new NotFoundException(NOT_FOUND_USER));
 
-        Booking booking = BookingDtoMapper.toBooking(bookingDto,
-                item.orElseThrow(() -> new NotFoundException(NOT_FOUND_ITEM)),
-                booker.orElseThrow(() -> new NotFoundException(NOT_FOUND_USER)));
+        Booking booking = BookingDtoMapper.toBooking(bookingDto, item, booker);
         validate(booking);
         booking = bookingRepository.saveAndFlush(booking);
 
@@ -105,7 +103,7 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getBooker().getId().equals(booking.getItem().getOwner().getId())) {
             throw new ConditionsNotMetException("Владелец предмета не может арендовать его сам.");
         }
-        if (Boolean.FALSE.equals(booking.getItem().getAvailable())){
+        if (Boolean.FALSE.equals(booking.getItem().getAvailable())) {
             throw new ConditionsNotMetException("Предмет недоступен для аренды.");
         }
         if (booking.getEnd().isBefore(booking.getStart())) {

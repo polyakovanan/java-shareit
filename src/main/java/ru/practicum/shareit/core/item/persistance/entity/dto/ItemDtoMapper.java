@@ -2,6 +2,7 @@ package ru.practicum.shareit.core.item.persistance.entity.dto;
 
 import ru.practicum.shareit.core.booking.persistance.entity.model.Booking;
 import ru.practicum.shareit.core.booking.persistance.entity.dto.BookingDtoMapper;
+import ru.practicum.shareit.core.item.persistance.entity.model.Comment;
 import ru.practicum.shareit.core.item.persistance.entity.model.Item;
 import ru.practicum.shareit.core.user.persistance.entity.model.User;
 
@@ -24,18 +25,8 @@ public class ItemDtoMapper {
                 .build();
     }
 
-    public static Item toItem(ItemDto itemDto, User owner) {
-        return Item.builder()
-                .id(itemDto.getId())
-                .name(itemDto.getName())
-                .description(itemDto.getDescription())
-                .available(itemDto.getAvailable())
-                .owner(owner)
-                .build();
-    }
-
-    public static ItemOwnerDto toItemOwnerDto(Item item, List<Booking> bookings) {
-        ItemOwnerDto itemOwnerDto = ItemOwnerDto.builder()
+    public static ItemDto toItemDto(Item item, List<Booking> bookings, List<Comment> comments) {
+        ItemDto itemOwnerDto = ItemDto.builder()
                 .id(item.getId())
                 .available(item.getAvailable())
                 .name(item.getName())
@@ -56,6 +47,23 @@ public class ItemDtoMapper {
 
         nextBooking.ifPresent(booking -> itemOwnerDto.setNextBooking(BookingDtoMapper.toBookingDto(booking)));
 
+        List<CommentDto> commentList = comments.stream()
+                .filter(comment -> comment.getItem().getId().equals(item.getId()))
+                .map(CommentDtoMapper::toCommentDto)
+                .toList();
+
+        itemOwnerDto.setComments(commentList);
         return itemOwnerDto;
     }
+
+    public static Item toItem(ItemDto itemDto, User owner) {
+        return Item.builder()
+                .id(itemDto.getId())
+                .name(itemDto.getName())
+                .description(itemDto.getDescription())
+                .available(itemDto.getAvailable())
+                .owner(owner)
+                .build();
+    }
+
 }

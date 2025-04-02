@@ -28,7 +28,6 @@ public class BookingController {
     public BookingOutDto updateStatus(@PathVariable Long bookingId,
                                       @RequestHeader("X-Sharer-User-Id") Long userId,
                                       @RequestParam Boolean approved) {
-        userService.findById(userId);
         return bookingService.updateStatus(bookingId, userId, approved);
     }
 

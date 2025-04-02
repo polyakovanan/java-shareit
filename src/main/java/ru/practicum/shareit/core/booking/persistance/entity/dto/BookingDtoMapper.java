@@ -8,7 +8,9 @@ import ru.practicum.shareit.core.user.persistance.entity.model.User;
 import ru.practicum.shareit.core.user.persistance.entity.dto.UserDtoMapper;
 
 public class BookingDtoMapper {
-    private BookingDtoMapper(){}
+    private BookingDtoMapper() {
+
+    }
 
     public static Booking toBooking(BookingInDto bookingDto, Item item, User user) {
         return Booking.builder()

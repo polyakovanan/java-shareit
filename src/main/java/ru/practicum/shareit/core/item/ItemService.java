@@ -1,12 +1,12 @@
 package ru.practicum.shareit.core.item;
 
+import ru.practicum.shareit.core.item.persistance.entity.dto.CommentDto;
 import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDto;
-import ru.practicum.shareit.core.item.persistance.entity.dto.ItemOwnerDto;
 
 import java.util.List;
 
 public interface ItemService {
-    List<ItemOwnerDto> findAllOwned(Long ownerId);
+    List<ItemDto> findAllOwned(Long ownerId);
 
     ItemDto findById(Long itemId);
 
@@ -15,4 +15,6 @@ public interface ItemService {
     ItemDto update(Long id, ItemDto itemDto, Long userId);
 
     List<ItemDto> search(String text);
+
+    CommentDto createComment(Long itemId, CommentDto commentDto, Long userId);
 }

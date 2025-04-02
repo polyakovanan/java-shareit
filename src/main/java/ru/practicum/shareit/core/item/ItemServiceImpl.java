@@ -4,16 +4,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.core.booking.persistance.entity.model.Booking;
 import ru.practicum.shareit.core.booking.persistance.repository.BookingRepository;
+import ru.practicum.shareit.core.item.persistance.entity.dto.*;
+import ru.practicum.shareit.core.item.persistance.entity.model.Comment;
+import ru.practicum.shareit.core.item.persistance.repository.CommentRepository;
 import ru.practicum.shareit.exception.ConditionsNotMetException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.core.item.persistance.entity.model.Item;
-import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDto;
-import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDtoMapper;
-import ru.practicum.shareit.core.item.persistance.entity.dto.ItemOwnerDto;
 import ru.practicum.shareit.core.item.persistance.repository.ItemRepository;
 import ru.practicum.shareit.core.user.persistance.entity.model.User;
 import ru.practicum.shareit.core.user.persistance.repository.UserRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,27 +24,34 @@ public class ItemServiceImpl implements ItemService {
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
+    private final CommentRepository commentRepository;
 
     private static final String NOT_FOUND_ITEM = "Предмет не найден";
+    private static final String NOT_FOUND_USER = "Пользователь не найден";
 
     @Override
-    public List<ItemOwnerDto> findAllOwned(Long ownerId) {
-        List<Booking> bookings = bookingRepository.findAllByBookerIdOrderByStartAsc(ownerId);
+    public List<ItemDto> findAllOwned(Long ownerId) {
+        List<Booking> bookings = bookingRepository.findAllByItemOwnerIdOrderByStartAsc(ownerId);
         List<Item> items = itemRepository.findAllByOwnerId(ownerId);
+        List<Comment> comments = commentRepository.findAllByItemIdIn(items.stream().map(Item::getId).toList());
         return items.stream()
-                .map(item -> ItemDtoMapper.toItemOwnerDto(item, bookings))
+                .map(item -> ItemDtoMapper.toItemDto(item, bookings, comments))
                 .toList();
     }
 
     @Override
     public ItemDto findById(Long itemId) {
-        Optional<Item> item = itemRepository.findById(itemId);
-        return ItemDtoMapper.toItemDto(item.orElseThrow(() -> new NotFoundException(NOT_FOUND_ITEM)));
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException(NOT_FOUND_ITEM));
+        List<Comment> comments = commentRepository.findAllByItemId(itemId);
+        List<Booking> bookings = bookingRepository.findAllByItemIdOrderByStartAsc(itemId);
+        ItemDto itemDto = ItemDtoMapper.toItemDto(item, bookings, comments);
+        itemDto.setComments(comments.stream().map(CommentDtoMapper::toCommentDto).toList());
+        return itemDto;
     }
 
     @Override
     public ItemDto create(ItemDto itemDto, Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException(NOT_FOUND_USER));
         Item item = ItemDtoMapper.toItem(itemDto, user);
         return ItemDtoMapper.toItemDto(itemRepository.saveAndFlush(item));
     }
@@ -78,5 +86,17 @@ public class ItemServiceImpl implements ItemService {
         return itemRepository.findAllBySearch(text).stream()
                 .map(ItemDtoMapper::toItemDto)
                 .toList();
+    }
+
+    @Override
+    public CommentDto createComment(Long itemId, CommentDto commentDto, Long userId) {
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException(NOT_FOUND_ITEM));
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException(NOT_FOUND_USER));
+
+        bookingRepository.findByItemIdAndBookerIdAndEndBefore(itemId, userId, LocalDateTime.now())
+                .orElseThrow(() -> new ConditionsNotMetException("Пользователь не арендовал предмет или время аренды еще не вышло"));
+
+        Comment comment = CommentDtoMapper.toComment(commentDto, item, user);
+        return CommentDtoMapper.toCommentDto(commentRepository.saveAndFlush(comment));
     }
 }

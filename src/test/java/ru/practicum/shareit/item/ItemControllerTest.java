@@ -6,9 +6,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import ru.practicum.shareit.ShareItApp;
 import ru.practicum.shareit.core.item.ItemController;
+import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDto;
 import ru.practicum.shareit.exception.ConditionsNotMetException;
 import ru.practicum.shareit.exception.NotFoundException;
-import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDto;
 import ru.practicum.shareit.core.user.UserController;
 import ru.practicum.shareit.core.user.persistance.entity.dto.UserDto;
 
