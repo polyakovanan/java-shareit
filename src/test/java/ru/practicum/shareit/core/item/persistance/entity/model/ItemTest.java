@@ -1,4 +1,4 @@
-package ru.practicum.shareit.item;
+package ru.practicum.shareit.core.item.persistance.entity.model;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;

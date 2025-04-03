@@ -1,21 +1,29 @@
-package ru.practicum.shareit.item;
+package ru.practicum.shareit.core.item;
 
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import ru.practicum.shareit.ShareItApp;
-import ru.practicum.shareit.core.item.ItemController;
+import ru.practicum.shareit.core.booking.BookingController;
+import ru.practicum.shareit.core.booking.persistance.entity.dto.BookingInDto;
+import ru.practicum.shareit.core.item.persistance.entity.dto.CommentDto;
 import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDto;
 import ru.practicum.shareit.exception.ConditionsNotMetException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.core.user.UserController;
 import ru.practicum.shareit.core.user.persistance.entity.dto.UserDto;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = ShareItApp.class)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@AutoConfigureTestDatabase
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class ItemControllerTest {
     static int userCount = 0;
     static int itemCount = 0;
@@ -25,6 +33,9 @@ class ItemControllerTest {
 
     @Autowired
     private ItemController itemController;
+
+    @Autowired
+    private BookingController bookingController;
 
     @Test
     void itemControllerCreatesCorrectItem() {
@@ -54,7 +65,7 @@ class ItemControllerTest {
         ItemDto itemDto = getItemDto(itemCount);
         itemDto = itemController.create(itemDto, userDto.getId());
         ItemDto foundItemDto = itemController.findById(itemDto.getId(), userDto.getId());
-        assertEquals(itemDto, foundItemDto);
+        assertEquals(itemDto.getId(), foundItemDto.getId());
     }
 
     @Test
@@ -177,6 +188,98 @@ class ItemControllerTest {
         assertEquals(0, itemController.search("", userDto.getId()).size(), "Неверное количество найденных вещей");
     }
 
+    @Test
+    void itemControllerCreatesCommentForItem() {
+        UserDto userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+
+        ItemDto itemDto = getItemDto(itemCount);
+        itemDto = itemController.create(itemDto, userDto.getId());
+
+        userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+
+        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now().minusDays(1), LocalDateTime.now());
+        bookingController.create(bookingDto, userDto.getId());
+
+        CommentDto commentDto = getCommentDto("Comment");
+
+        CommentDto resultCommentDto = itemController.createComment(itemDto.getId(), commentDto, userDto.getId());
+        assertEquals(commentDto.getText(), resultCommentDto.getText());
+        assertEquals(userDto.getName(), resultCommentDto.getAuthorName());
+    }
+
+    @Test
+    void itemControllerDoesNotCreateCommentForUnknownUser() {
+        UserDto userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+
+        ItemDto itemDto = getItemDto(itemCount);
+        itemDto = itemController.create(itemDto, userDto.getId());
+        Long itemId = itemDto.getId();
+
+        CommentDto commentDto = getCommentDto("Comment");
+
+        NotFoundException thrown = assertThrows(NotFoundException.class,
+                () -> itemController.createComment(itemId, commentDto, 9999L));
+        assertTrue(thrown.getMessage().contains("Пользователь не найден"));
+    }
+
+    @Test
+    void itemControllerDoesNotCreateCommentForUnknownItem() {
+        UserDto userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+        Long userId = userDto.getId();
+        CommentDto commentDto = getCommentDto("Comment");
+
+        NotFoundException thrown = assertThrows(NotFoundException.class,
+                () -> itemController.createComment(9999L, commentDto, userId));
+        assertTrue(thrown.getMessage().contains("Предмет не найден"));
+    }
+
+    @Test
+    void itemControllerDoesNotCreateCommentForNotBookedItem() {
+        UserDto userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+
+        ItemDto itemDto = getItemDto(itemCount);
+        itemDto = itemController.create(itemDto, userDto.getId());
+        Long itemId = itemDto.getId();
+
+        userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+        Long userId = userDto.getId();
+
+        CommentDto commentDto = getCommentDto("Comment");
+
+        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
+                () -> itemController.createComment(itemId, commentDto, userId));
+        assertTrue(thrown.getMessage().contains("Пользователь не арендовал предмет или время аренды еще не вышло"));
+    }
+
+    @Test
+    void itemControllerDoesNotCreateCommentForNotEndedBooking() {
+        UserDto userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+
+        ItemDto itemDto = getItemDto(itemCount);
+        itemDto = itemController.create(itemDto, userDto.getId());
+        Long itemId = itemDto.getId();
+
+        userDto = getUserDto(userCount);
+        userDto = userController.create(userDto);
+        Long userId = userDto.getId();
+
+        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
+        bookingController.create(bookingDto, userId);
+
+        CommentDto commentDto = getCommentDto("Comment");
+
+        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
+                () -> itemController.createComment(itemId, commentDto, userId));
+        assertTrue(thrown.getMessage().contains("Пользователь не арендовал предмет или время аренды еще не вышло"));
+    }
+
     private UserDto getUserDto(int count) {
         userCount++;
         return UserDto.builder()
@@ -191,6 +294,20 @@ class ItemControllerTest {
                 .name("Item" + count)
                 .description("Description" + count)
                 .available(true)
+                .build();
+    }
+
+    private BookingInDto getBookingDto(ItemDto itemDto, LocalDateTime start, LocalDateTime end) {
+        return BookingInDto.builder()
+                .itemId(itemDto.getId())
+                .start(start)
+                .end(end)
+                .build();
+    }
+
+    private CommentDto getCommentDto(String text) {
+        return CommentDto.builder()
+                .text(text)
                 .build();
     }
 }

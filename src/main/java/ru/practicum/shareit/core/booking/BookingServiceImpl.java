@@ -96,7 +96,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void validate(Booking booking) {
-        Optional<Booking> bookingOptional = bookingRepository.findByItemIdAndEndIsAfterAndStartIsBefore(booking.getItem().getId(), booking.getEnd(), booking.getStart());
+        Optional<Booking> bookingOptional = bookingRepository.findByItemIdAndEndIsAfterAndStartIsBefore(booking.getItem().getId(), booking.getStart(), booking.getStart());
         if (bookingOptional.isPresent()) {
             throw new ConditionsNotMetException("Предмет уже забронирован на это время.");
         }

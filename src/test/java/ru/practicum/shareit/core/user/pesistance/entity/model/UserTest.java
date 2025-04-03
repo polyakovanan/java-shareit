@@ -1,4 +1,4 @@
-package ru.practicum.shareit.user;
+package ru.practicum.shareit.core.user.pesistance.entity.model;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -46,4 +46,5 @@ public class UserTest {
         Set<ConstraintViolation<UserDto>> violations = validator.validate(user);
         Assertions.assertEquals(1, violations.size(), "Не пройдена валидация на некорректный email");
     }
+
 }

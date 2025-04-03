@@ -51,7 +51,8 @@ public class UserServiceImpl implements UserService {
     }
 
     private void validate(User user) throws DuplicatedDataException {
-        if (!userRepository.findAllByEmailAndIdNot(user.getEmail(), user.getId()).isEmpty()) {
+        Optional<User> userOptional = userRepository.findAllByEmail(user.getEmail());
+        if (userOptional.isPresent() && !userOptional.get().getId().equals(user.getId())) {
             throw new DuplicatedDataException("Этот email уже используется");
         }
     }
