@@ -25,6 +25,14 @@ public class ItemDtoMapper {
                 .build();
     }
 
+    public static ItemShortDto toItemShortDto(Item item) {
+        return ItemShortDto.builder()
+                .id(item.getId())
+                .name(item.getName())
+                .ownerId(item.getOwner().getId())
+                .build();
+    }
+
     public static ItemDto toItemDto(Item item, List<Booking> bookings, List<Comment> comments) {
         ItemDto itemOwnerDto = ItemDto.builder()
                 .id(item.getId())

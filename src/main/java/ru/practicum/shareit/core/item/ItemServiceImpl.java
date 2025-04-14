@@ -7,6 +7,8 @@ import ru.practicum.shareit.core.booking.persistance.repository.BookingRepositor
 import ru.practicum.shareit.core.item.persistance.entity.dto.*;
 import ru.practicum.shareit.core.item.persistance.entity.model.Comment;
 import ru.practicum.shareit.core.item.persistance.repository.CommentRepository;
+import ru.practicum.shareit.core.request.persistance.entity.model.ItemRequest;
+import ru.practicum.shareit.core.request.persistance.repository.ItemRequestRepository;
 import ru.practicum.shareit.exception.ConditionsNotMetException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.core.item.persistance.entity.model.Item;
@@ -23,6 +25,8 @@ import java.util.Optional;
 public class ItemServiceImpl implements ItemService {
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
+    private final ItemRequestRepository itemRequestRepository;
+
     private final BookingRepository bookingRepository;
     private final CommentRepository commentRepository;
 
@@ -53,6 +57,10 @@ public class ItemServiceImpl implements ItemService {
     public ItemDto create(ItemDto itemDto, Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException(NOT_FOUND_USER));
         Item item = ItemDtoMapper.toItem(itemDto, user);
+        if (itemDto.getRequestId() != null) {
+            ItemRequest request = itemRequestRepository.findById(itemDto.getRequestId()).orElseThrow(() -> new NotFoundException("Запрос не найден"));
+            item.setRequest(request);
+        }
         return ItemDtoMapper.toItemDto(itemRepository.saveAndFlush(item));
     }
 
