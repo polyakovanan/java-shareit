@@ -12,4 +12,5 @@ public class ItemDto {
     private String description;
     @NotNull(message = "Статус доступности не может быть пустым")
     private Boolean available;
+    private Long requestId;
 }

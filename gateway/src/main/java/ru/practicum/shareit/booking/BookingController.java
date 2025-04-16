@@ -55,7 +55,7 @@ public class BookingController {
     public ResponseEntity<Object> updateStatus(@PathVariable Long bookingId,
                                       @RequestHeader("X-Sharer-User-Id") Long userId,
                                       @RequestParam Boolean approved) {
-        return bookingClient.updateStatus(bookingId, userId, approved);
+        return bookingClient.updateStatus(userId, bookingId, approved);
     }
 
 
