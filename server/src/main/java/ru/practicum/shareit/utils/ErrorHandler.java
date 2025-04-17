@@ -30,6 +30,9 @@ public class ErrorHandler {
     @ExceptionHandler
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleGeneric(final Throwable e) {
+        if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+            return new ErrorResponse(e.getMessage());
+        }
         return new ErrorResponse("Произошла непредвиденная ошибка.");
     }
 }

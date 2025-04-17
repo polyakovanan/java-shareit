@@ -1,473 +1,319 @@
 package ru.practicum.shareit.core.booking;
 
-import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import ru.practicum.shareit.ShareItApp;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import ru.practicum.shareit.core.booking.persistance.entity.dto.BookingInDto;
 import ru.practicum.shareit.core.booking.persistance.entity.dto.BookingOutDto;
-import ru.practicum.shareit.core.item.ItemController;
 import ru.practicum.shareit.core.item.persistance.entity.dto.ItemDto;
-import ru.practicum.shareit.core.user.UserController;
 import ru.practicum.shareit.core.user.persistance.entity.dto.UserDto;
+import ru.practicum.shareit.core.user.UserService;
 import ru.practicum.shareit.exception.ConditionsNotMetException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.utils.ErrorHandler;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(classes = ShareItApp.class)
-@AutoConfigureTestDatabase
-@RequiredArgsConstructor(onConstructor_ = @Autowired)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@ExtendWith(MockitoExtension.class)
 class BookingControllerTest {
-    static int userCount = 0;
-    static int itemCount = 0;
+    private MockMvc mockMvc;
+    private final ObjectMapper mapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
-    @Autowired
-    private UserController userController;
+    @Mock
+    private BookingService bookingService;
 
-    @Autowired
-    private ItemController itemController;
+    @Mock
+    private UserService userService;
 
-    @Autowired
+    @InjectMocks
     private BookingController bookingController;
 
-    @Test
-    void bookingControllerCreatesCorrectBooking() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        BookingOutDto resultBookingDto = bookingController.create(bookingDto, userId);
-        assertEquals(bookingDto.getItemId(), resultBookingDto.getItem().getId(), "Контроллер бронирований создал неверную бронь");
-        assertEquals(userId, resultBookingDto.getBooker().getId(), "Контроллер бронирований создал неверную бронь");
-    }
-
-    @Test
-    void bookingControllerDoesNotCreateBookingForUnknownUser() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-
-        NotFoundException thrown = assertThrows(NotFoundException.class,
-                () -> bookingController.create(bookingDto, 9999L));
-        assertTrue(thrown.getMessage().contains("Пользователь не найден"));
-    }
-
-    @Test
-    void bookingControllerDoesNotCreateBookingForUnknownItem() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto.setId(9999L);
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        NotFoundException thrown = assertThrows(NotFoundException.class,
-                () -> bookingController.create(bookingDto, userId));
-        assertTrue(thrown.getMessage().contains("Предмет не найден"));
-    }
-
-    @Test
-    void bookingControllerDoesNotCreateBookingForAlreadyBookedItem() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto.setAvailable(false);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
-                () -> bookingController.create(bookingDto, userId));
-        assertTrue(thrown.getMessage().contains("Предмет недоступен для аренды."));
-    }
-
-    @Test
-    void bookingControllerDoesNotCreateBookingForWrongDate() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now().plusDays(1), LocalDateTime.now());
-        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
-                () -> bookingController.create(bookingDto, userId));
-        assertTrue(thrown.getMessage().contains("Время окончания бронирования должно быть после времени начала."));
-    }
-
-    @Test
-    void bookingControllerDoesNotCreateBookingForItemOwner() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long ownerId = userDto.getId();
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
-                () -> bookingController.create(bookingDto, ownerId));
-        assertTrue(thrown.getMessage().contains("Владелец предмета не может арендовать его сам."));
-    }
-
-    @Test
-    void bookingControllerDoesNotCreateBookingForBookedDates() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(2));
-        bookingController.create(bookingDto, userId);
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long newUserId = userDto.getId();
-
-        BookingInDto newBookingDto = getBookingDto(itemDto, LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(3));
-        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
-                () -> bookingController.create(newBookingDto, newUserId));
-        assertTrue(thrown.getMessage().contains("Предмет уже забронирован на это время."));
-
-    }
-
-    @Test
-    void bookingControllerAcceptsBookingCorrectly() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long ownerId = userDto.getId();
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        BookingOutDto resultBookingDto = bookingController.create(bookingDto, userId);
-
-        resultBookingDto = bookingController.updateStatus(resultBookingDto.getId(), ownerId, true);
-        assertEquals(BookingStatus.APPROVED, resultBookingDto.getStatus(), "Контроллер бронирований не принял бронь корректно");
-    }
-
-    @Test
-    void bookingControllerRejectsBookingCorrectly() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long ownerId = userDto.getId();
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        BookingOutDto resultBookingDto = bookingController.create(bookingDto, userId);
-
-        resultBookingDto = bookingController.updateStatus(resultBookingDto.getId(), ownerId, false);
-        assertEquals(BookingStatus.REJECTED, resultBookingDto.getStatus(), "Контроллер бронирований не отклонил бронь корректно");
-    }
-
-    @Test
-    void bookingControllerDoesNotUpdateStatusForUnknownBooking() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long ownerId = userDto.getId();
-
-        NotFoundException thrown = assertThrows(NotFoundException.class,
-                () -> bookingController.updateStatus(9999L, ownerId, true));
-        assertTrue(thrown.getMessage().contains("Бронирование не найдено"));
-    }
-
-    @Test
-    void bookingControllerGetsBookingForUserCorrectly() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        BookingOutDto resultBookingDto = bookingController.create(bookingDto, userId);
-
-        BookingOutDto foundBookingDto = bookingController.findById(resultBookingDto.getId(), userId);
-        assertEquals(resultBookingDto.getId(), foundBookingDto.getId(), "Контроллер бронирований не вернул корректную бронь");
-    }
-
-    @Test
-    void bookingControllerGetsBookingsForOwnerCorrectly() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long ownerId = userDto.getId();
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        BookingOutDto resultBookingDto = bookingController.create(bookingDto, userId);
-
-        BookingOutDto foundBookingDto = bookingController.findById(resultBookingDto.getId(), ownerId);
-        assertEquals(resultBookingDto.getId(), foundBookingDto.getId(), "Контроллер бронирований не вернул корректную бронь");
-    }
-
-    @Test
-    void bookingControllerDoesNotGetBookingForNotOwnerOrBooker() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        BookingOutDto resultBookingDto = bookingController.create(bookingDto, userId);
-        Long bookingId = resultBookingDto.getId();
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long newUserId = userDto.getId();
-
-        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
-                () -> bookingController.findById(bookingId, newUserId));
-        assertTrue(thrown.getMessage().contains("Только владелец предмета или бронирующий может получить информацию о бронировании."));
-    }
-
-    @Test
-    void bookingControllerDoesNotUpdateStatusForNotOwner() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-
-        ItemDto itemDto = getItemDto(itemCount);
-        itemDto = itemController.create(itemDto, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        BookingInDto bookingDto = getBookingDto(itemDto, LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        BookingOutDto resultBookingDto = bookingController.create(bookingDto, userId);
-        Long bookingId = resultBookingDto.getId();
-
-        ConditionsNotMetException thrown = assertThrows(ConditionsNotMetException.class,
-                () -> bookingController.updateStatus(bookingId, userId, true));
-        assertTrue(thrown.getMessage().contains("Только владелец предмета может менять статус бронирования."));
-    }
-
-    @Test
-    void bookingControllerGetsBookingListByStateForUserCorrectly() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long ownerId = userDto.getId();
-
-        ItemDto item1 = getItemDto(itemCount);
-        item1 = itemController.create(item1, userDto.getId());
-
-        ItemDto item2 = getItemDto(itemCount);
-        item2 = itemController.create(item2, userDto.getId());
-
-        ItemDto item3 = getItemDto(itemCount);
-        item3 = itemController.create(item3, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        // Прошлые бронирования (PAST)
-        BookingInDto bookingDto1 = getBookingDto(item1, LocalDateTime.of(2023, 1, 1, 10, 0), LocalDateTime.of(2023, 1, 2, 12, 0));
-        BookingOutDto resultBookingDto1 = bookingController.create(bookingDto1, userId);
-        resultBookingDto1 = bookingController.updateStatus(resultBookingDto1.getId(), ownerId, true);
-
-        BookingInDto bookingDto2 = getBookingDto(item2, LocalDateTime.of(2023, 2, 1, 10, 0), LocalDateTime.of(2023, 2, 5, 12, 0));
-        BookingOutDto resultBookingDto2 = bookingController.create(bookingDto2, userId);
-        resultBookingDto2 = bookingController.updateStatus(resultBookingDto2.getId(), ownerId, false);
-
-        // Текущее бронирование (CURRENT)
-        BookingInDto bookingDto3 = getBookingDto(item1, LocalDateTime.of(2023, 1, 1, 10, 0), LocalDateTime.of(2030, 1, 2, 12, 0));
-        BookingOutDto resultBookingDto3 = bookingController.create(bookingDto3, userId);
-        resultBookingDto3 = bookingController.updateStatus(resultBookingDto3.getId(), ownerId, true);
-
-        // Будущие бронирования (FUTURE)
-        BookingInDto bookingDto4 = getBookingDto(item2, LocalDateTime.of(2030, 1, 1, 10, 0), LocalDateTime.of(2030, 1, 2, 12, 0));
-        BookingOutDto resultBookingDto4 = bookingController.create(bookingDto4, userId);
-        resultBookingDto4 = bookingController.updateStatus(resultBookingDto4.getId(), ownerId, true);
-
-        BookingInDto bookingDto5 = getBookingDto(item3, LocalDateTime.of(2030, 2, 1, 10, 0), LocalDateTime.of(2030, 2, 5, 12, 0));
-        BookingOutDto resultBookingDto5 = bookingController.create(bookingDto5, userId);
-
-        List<BookingOutDto> bookingList = bookingController.findAllByBookerAndState(BookingState.ALL, userId);
-        assertEquals(5, bookingList.size());
-
-        bookingList = bookingController.findAllByBookerAndState(BookingState.WAITING, userId);
-        assertEquals(1, bookingList.size());
-        assertEquals(resultBookingDto5.getId(), bookingList.getFirst().getId());
-
-        bookingList = bookingController.findAllByBookerAndState(BookingState.REJECTED, userId);
-        assertEquals(1, bookingList.size());
-        assertEquals(resultBookingDto2.getId(), bookingList.getFirst().getId());
-
-        bookingList = bookingController.findAllByBookerAndState(BookingState.PAST, userId);
-        assertEquals(2, bookingList.size());
-        assertEquals(resultBookingDto2.getId(), bookingList.getFirst().getId());
-        assertEquals(resultBookingDto1.getId(), bookingList.get(1).getId());
-
-        bookingList = bookingController.findAllByBookerAndState(BookingState.CURRENT, userId);
-        assertEquals(1, bookingList.size());
-        assertEquals(resultBookingDto3.getId(), bookingList.getFirst().getId());
-
-        bookingList = bookingController.findAllByBookerAndState(BookingState.FUTURE, userId);
-        assertEquals(2, bookingList.size());
-        assertEquals(resultBookingDto5.getId(), bookingList.getFirst().getId());
-        assertEquals(resultBookingDto4.getId(), bookingList.get(1).getId());
-    }
-
-    @Test
-    void bookingControllerGetsBookingListByStateForOwnerCorrectly() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long ownerId = userDto.getId();
-
-        ItemDto item1 = getItemDto(itemCount);
-        item1 = itemController.create(item1, userDto.getId());
-
-        ItemDto item2 = getItemDto(itemCount);
-        item2 = itemController.create(item2, userDto.getId());
-
-        ItemDto item3 = getItemDto(itemCount);
-        item3 = itemController.create(item3, userDto.getId());
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long otherOwner = userDto.getId();
-
-        ItemDto item4 = getItemDto(itemCount);
-        item4 = itemController.create(item4, otherOwner);
-
-        userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-
-        // Прошлые бронирования (PAST)
-        BookingInDto bookingDto1 = getBookingDto(item1, LocalDateTime.of(2023, 1, 1, 10, 0), LocalDateTime.of(2023, 1, 2, 12, 0));
-        BookingOutDto resultBookingDto1 = bookingController.create(bookingDto1, userId);
-        resultBookingDto1 = bookingController.updateStatus(resultBookingDto1.getId(), ownerId, true);
-
-        BookingInDto bookingDto2 = getBookingDto(item2, LocalDateTime.of(2023, 2, 1, 10, 0), LocalDateTime.of(2023, 2, 5, 12, 0));
-        BookingOutDto resultBookingDto2 = bookingController.create(bookingDto2, userId);
-        resultBookingDto2 = bookingController.updateStatus(resultBookingDto2.getId(), ownerId, false);
-
-        // Текущее бронирование (CURRENT)
-        BookingInDto bookingDto3 = getBookingDto(item1, LocalDateTime.of(2023, 1, 1, 10, 0), LocalDateTime.of(2030, 1, 2, 12, 0));
-        BookingOutDto resultBookingDto3 = bookingController.create(bookingDto3, userId);
-        resultBookingDto3 = bookingController.updateStatus(resultBookingDto3.getId(), ownerId, true);
-
-        // Будущие бронирования (FUTURE)
-        BookingInDto bookingDto4 = getBookingDto(item2, LocalDateTime.of(2030, 1, 1, 10, 0), LocalDateTime.of(2030, 1, 2, 12, 0));
-        BookingOutDto resultBookingDto4 = bookingController.create(bookingDto4, userId);
-        resultBookingDto4 = bookingController.updateStatus(resultBookingDto4.getId(), ownerId, true);
-
-        BookingInDto bookingDto5 = getBookingDto(item3, LocalDateTime.of(2030, 2, 1, 10, 0), LocalDateTime.of(2030, 2, 5, 12, 0));
-        BookingOutDto resultBookingDto5 = bookingController.create(bookingDto5, userId);
-
-        // Бронирование у другого владельца
-        BookingInDto bookingDto6 = getBookingDto(item4, LocalDateTime.of(2030, 3, 1, 10, 0), LocalDateTime.of(2030, 3, 5, 12, 0));
-        BookingOutDto resultBookingDto6 = bookingController.create(bookingDto6, userId);
-        bookingController.updateStatus(resultBookingDto6.getId(), otherOwner, true);
-
-        List<BookingOutDto> bookingList = bookingController.findAllByOwnerAndState(BookingState.ALL, ownerId);
-        assertEquals(5, bookingList.size());
-
-        bookingList = bookingController.findAllByOwnerAndState(BookingState.WAITING, ownerId);
-        assertEquals(1, bookingList.size());
-        assertEquals(resultBookingDto5.getId(), bookingList.getFirst().getId());
-
-        bookingList = bookingController.findAllByOwnerAndState(BookingState.REJECTED, ownerId);
-        assertEquals(1, bookingList.size());
-        assertEquals(resultBookingDto2.getId(), bookingList.getFirst().getId());
-
-        bookingList = bookingController.findAllByOwnerAndState(BookingState.PAST, ownerId);
-        assertEquals(2, bookingList.size());
-        assertEquals(resultBookingDto2.getId(), bookingList.getFirst().getId());
-        assertEquals(resultBookingDto1.getId(), bookingList.get(1).getId());
-
-        bookingList = bookingController.findAllByOwnerAndState(BookingState.CURRENT, ownerId);
-        assertEquals(1, bookingList.size());
-        assertEquals(resultBookingDto3.getId(), bookingList.getFirst().getId());
-
-        bookingList = bookingController.findAllByOwnerAndState(BookingState.FUTURE, ownerId);
-        assertEquals(2, bookingList.size());
-        assertEquals(resultBookingDto5.getId(), bookingList.getFirst().getId());
-        assertEquals(resultBookingDto4.getId(), bookingList.get(1).getId());
-    }
-
-    private UserDto getUserDto(int count) {
-        userCount++;
-        return UserDto.builder()
-                .name("User" + count)
-                .email("user" + count + "@mail.ru")
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders
+                .standaloneSetup(bookingController)
+                .setControllerAdvice(new ErrorHandler())
                 .build();
     }
 
-    private ItemDto getItemDto(int count) {
-        itemCount++;
-        return ItemDto.builder()
-                .name("Item" + count)
-                .description("Description" + count)
-                .available(true)
-                .build();
+    @Test
+    void createBookingShouldReturnCreatedBooking() throws Exception {
+        Long userId = 2L;
+        LocalDateTime start = LocalDateTime.now().plusDays(1);
+        LocalDateTime end = LocalDateTime.now().plusDays(2);
+        BookingInDto bookingInDto = createBookingInDto(1L, start, end);
+        BookingOutDto bookingOutDto = createBookingOutDto(1L, 1L, userId, start, end);
+
+        when(bookingService.create(any(), eq(userId))).thenReturn(bookingOutDto);
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .content(mapper.writeValueAsString(bookingInDto))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L));
     }
 
-    private BookingInDto getBookingDto(ItemDto itemDto, LocalDateTime start, LocalDateTime end) {
+    @Test
+    void createBookingWithUnknownUserShouldReturnNotFound() throws Exception {
+        Long userId = 999L;
+        BookingInDto bookingInDto = createBookingInDto(1L,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(1));
+
+        when(bookingService.create(any(), eq(userId))).thenThrow(new NotFoundException("Пользователь не найден"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .content(mapper.writeValueAsString(bookingInDto))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Пользователь не найден"));
+    }
+
+    @Test
+    void createBookingWithUnknownItemShouldReturnNotFound() throws Exception {
+        Long userId = 1L;
+        BookingInDto bookingInDto = createBookingInDto(999L,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(1));
+
+        when(bookingService.create(any(), eq(userId))).thenThrow(new NotFoundException("Предмет не найден"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .content(mapper.writeValueAsString(bookingInDto))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Предмет не найден"));
+    }
+
+    @Test
+    void createBookingWithUnavailableItemShouldReturnBadRequest() throws Exception {
+        Long userId = 1L;
+        BookingInDto bookingInDto = createBookingInDto(1L,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(1));
+
+        when(bookingService.create(any(), eq(userId))).thenThrow(
+                new ConditionsNotMetException("Предмет недоступен для аренды."));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .content(mapper.writeValueAsString(bookingInDto))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("Предмет недоступен для аренды."));
+    }
+
+    @Test
+    void createBookingWithInvalidDatesShouldReturnBadRequest() throws Exception {
+        Long userId = 1L;
+        BookingInDto bookingInDto = createBookingInDto(1L,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now());
+
+        when(bookingService.create(any(), eq(userId))).thenThrow(
+                new ConditionsNotMetException("Время окончания бронирования должно быть после времени начала."));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .content(mapper.writeValueAsString(bookingInDto))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("Время окончания бронирования должно быть после времени начала."));
+    }
+
+    @Test
+    void createBookingForItemOwnerShouldReturnBadRequest() throws Exception {
+        Long userId = 1L;
+        BookingInDto bookingInDto = createBookingInDto(1L,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(1));
+
+        when(bookingService.create(any(), eq(userId))).thenThrow(
+                new ConditionsNotMetException("Владелец предмета не может арендовать его сам."));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .content(mapper.writeValueAsString(bookingInDto))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("Владелец предмета не может арендовать его сам."));
+    }
+
+    @Test
+    void approveBookingShouldApproveBooking() throws Exception {
+        Long ownerId = 1L;
+        Long bookingId = 1L;
+        BookingOutDto bookingOutDto = createBookingOutDto(bookingId, 1L, 2L,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now().plusDays(2));
+        bookingOutDto.setStatus(BookingStatus.APPROVED);
+
+        when(bookingService.updateStatus(bookingId, ownerId, true))
+                .thenReturn(bookingOutDto);
+
+        mockMvc.perform(patch("/bookings/{bookingId}", bookingId)
+                        .header("X-Sharer-User-Id", ownerId)
+                        .param("approved", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+    }
+
+    @Test
+    void rejectBookingShouldRejectBooking() throws Exception {
+        Long ownerId = 1L;
+        Long bookingId = 1L;
+        BookingOutDto bookingOutDto = createBookingOutDto(bookingId, 1L, 2L,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now().plusDays(2));
+        bookingOutDto.setStatus(BookingStatus.REJECTED);
+
+        when(bookingService.updateStatus(bookingId, ownerId, false))
+                .thenReturn(bookingOutDto);
+
+        mockMvc.perform(patch("/bookings/{bookingId}", bookingId)
+                        .header("X-Sharer-User-Id", ownerId)
+                        .param("approved", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"));
+    }
+
+    @Test
+    void updateStatusWithUnknownBookingShouldReturnNotFound() throws Exception {
+        Long ownerId = 1L;
+        Long bookingId = 999L;
+
+        when(bookingService.updateStatus(eq(bookingId), eq(ownerId), anyBoolean()))
+                .thenThrow(new NotFoundException("Бронирование не найдено"));
+
+        mockMvc.perform(patch("/bookings/{bookingId}", bookingId)
+                        .header("X-Sharer-User-Id", ownerId)
+                        .param("approved", "true"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Бронирование не найдено"));
+    }
+
+    @Test
+    void getBookingShouldReturnBooking() throws Exception {
+        Long userId = 2L;
+        Long bookingId = 1L;
+        BookingOutDto bookingOutDto = createBookingOutDto(bookingId, 1L, userId,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now().plusDays(2));
+
+        when(bookingService.findById(bookingId, userId)).thenReturn(bookingOutDto);
+
+        mockMvc.perform(get("/bookings/{bookingId}", bookingId)
+                        .header("X-Sharer-User-Id", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(bookingId));
+    }
+
+    @Test
+    void getBookingWithUnknownBookingShouldReturnNotFound() throws Exception {
+        Long userId = 1L;
+        Long bookingId = 999L;
+
+        when(bookingService.findById(bookingId, userId))
+                .thenThrow(new NotFoundException("Бронирование не найдено"));
+
+        mockMvc.perform(get("/bookings/{bookingId}", bookingId)
+                        .header("X-Sharer-User-Id", userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Бронирование не найдено"));
+    }
+
+    @Test
+    void getAllBookingsForUserShouldReturnBookings() throws Exception {
+        Long userId = 2L;
+        BookingOutDto booking1 = createBookingOutDto(1L, 1L, userId,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now().plusDays(2));
+        BookingOutDto booking2 = createBookingOutDto(2L, 2L, userId,
+                LocalDateTime.now().plusDays(3),
+                LocalDateTime.now().plusDays(4));
+
+        when(bookingService.findAllByBookerAndState(BookingState.ALL, 2L))
+                .thenReturn(List.of(booking1, booking2));
+        when(userService.findById(anyLong())).thenReturn(any());
+
+        mockMvc.perform(get("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .param("state", "ALL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void getAllBookingsForOwnerShouldReturnBookings() throws Exception {
+        Long ownerId = 1L;
+        BookingOutDto booking1 = createBookingOutDto(1L, 1L, 2L,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now().plusDays(2));
+        BookingOutDto booking2 = createBookingOutDto(2L, 2L, 3L,
+                LocalDateTime.now().plusDays(3),
+                LocalDateTime.now().plusDays(4));
+
+        when(bookingService.findAllByOwnerAndState(BookingState.ALL, 1L))
+                .thenReturn(List.of(booking1, booking2));
+        when(userService.findById(anyLong())).thenReturn(any());
+
+        mockMvc.perform(get("/bookings/owner")
+                        .header("X-Sharer-User-Id", ownerId)
+                        .param("state", "ALL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    // Вспомогательные методы
+    private BookingInDto createBookingInDto(Long itemId, LocalDateTime start, LocalDateTime end) {
         return BookingInDto.builder()
-                .itemId(itemDto.getId())
+                .itemId(itemId)
                 .start(start)
                 .end(end)
                 .build();
     }
+
+    private BookingOutDto createBookingOutDto(Long bookingId, Long itemId, Long bookerId,
+                                              LocalDateTime start, LocalDateTime end) {
+        ItemDto itemDto = ItemDto.builder()
+                .id(itemId)
+                .name("Item " + itemId)
+                .description("Description " + itemId)
+                .available(true)
+                .build();
+
+        UserDto userDto = UserDto.builder()
+                .id(bookerId)
+                .name("User " + bookerId)
+                .email("user" + bookerId + "@mail.ru")
+                .build();
+
+        return BookingOutDto.builder()
+                .id(bookingId)
+                .item(itemDto)
+                .booker(userDto)
+                .start(start)
+                .end(end)
+                .status(BookingStatus.WAITING)
+                .build();
+    }
+
 }

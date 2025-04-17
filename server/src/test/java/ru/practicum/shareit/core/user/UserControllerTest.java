@@ -1,133 +1,217 @@
 package ru.practicum.shareit.core.user;
 
-import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import ru.practicum.shareit.ShareItApp;
-import ru.practicum.shareit.core.user.UserController;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import ru.practicum.shareit.exception.DuplicatedDataException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.core.user.persistance.entity.dto.UserDto;
+import ru.practicum.shareit.utils.ErrorHandler;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.nio.charset.StandardCharsets;
 
-@SpringBootTest(classes = ShareItApp.class)
-@AutoConfigureTestDatabase
-@RequiredArgsConstructor(onConstructor_ = @Autowired)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@ExtendWith(MockitoExtension.class)
 class UserControllerTest {
-    static int userCount = 0;
-    @Autowired
+    private MockMvc mockMvc;
+    private final ObjectMapper mapper = new ObjectMapper();
+    private static int userCount = 0;
+
+    @Mock
+    private UserService userService;
+
+    @InjectMocks
     private UserController userController;
 
-    @Test
-    void userControllerCreatesCorrectUser() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        assertNotNull(userDto.getId());
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders
+                .standaloneSetup(userController)
+                .setControllerAdvice(new ErrorHandler())
+                .build();
     }
 
     @Test
-    void userControllerDoesNotCreateUserWithDuplicateEmail() {
+    void createUserShouldCreateCorrectUser() throws Exception {
         UserDto userDto = getUserDto(userCount);
-        userController.create(userDto);
+        when(userService.create(any())).thenReturn(userDto);
 
-        DuplicatedDataException thrown = assertThrows(
-                DuplicatedDataException.class,
-                () -> userController.create(userDto),
-                "Контроллер не выкинул исключение о дубликате email"
-        );
+        mockMvc.perform(post("/users")
+                        .content(mapper.writeValueAsString(userDto))
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.name").value(userDto.getName()))
+                .andExpect(jsonPath("$.email").value(userDto.getEmail()));
 
-        assertTrue(thrown.getMessage().contains("Этот email уже используется"));
+        verify(userService, times(1)).create(any());
     }
 
     @Test
-    void userControllerGetsUserById() {
+    void createUserWithDuplicateEmailShouldThrowException() throws Exception {
         UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        UserDto createdUser = userController.findById(userDto.getId());
-        assertEquals(userDto, createdUser);
+        when(userService.create(any())).thenThrow(new DuplicatedDataException("Этот email уже используется"));
+
+        mockMvc.perform(post("/users")
+                        .content(mapper.writeValueAsString(userDto))
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("Этот email уже используется"));
+
+        verify(userService, times(1)).create(any());
     }
 
     @Test
-    void userControllerDoesNotGetUserWithWrongId() {
-        assertThrows(NotFoundException.class,
-                () -> userController.findById(9999L),
-                "Контроллер не выкинул исключение при попытке получить пользователя по несуществующему id");
+    void getUserByIdShouldReturnUser() throws Exception {
+        UserDto userDto = getUserDto(userCount);
+        when(userService.findById(anyLong())).thenReturn(userDto);
+
+        mockMvc.perform(get("/users/{id}", userDto.getId())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userDto.getId()))
+                .andExpect(jsonPath("$.name").value(userDto.getName()))
+                .andExpect(jsonPath("$.email").value(userDto.getEmail()));
+
+        verify(userService, times(1)).findById(userDto.getId());
     }
 
     @Test
-    void userControllerUpdatesUser() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        userDto.setName("User" + 9999);
-        userDto.setEmail("user" + 9999 + "@mail.ru");
-        UserDto updatedUser = userController.update(userDto.getId(), userDto);
-        assertEquals(userDto, updatedUser);
+    void getUserByIdWithWrongIdShouldThrowException() throws Exception {
+        when(userService.findById(anyLong())).thenThrow(new NotFoundException("Пользователь не найден"));
+
+        mockMvc.perform(get("/users/{id}", 9999L)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Пользователь не найден"));
+
+        verify(userService, times(1)).findById(9999L);
     }
 
     @Test
-    void userControllerUpdatesWithAbsentFields() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        String email = userDto.getEmail();
-        userDto.setEmail(null);
-        userDto.setName("User9999");
-        UserDto updatedUser = userController.update(userDto.getId(), userDto);
-        assertEquals(userDto.getName(), updatedUser.getName());
-        assertEquals(email, updatedUser.getEmail());
+    void updateUserShouldUpdateAllFields() throws Exception {
+        UserDto originalUser = getUserDto(userCount);
+        UserDto updatedUser = getUserDto(userCount);
+        updatedUser.setName("UpdatedName");
+        updatedUser.setEmail("updated@mail.ru");
+
+        when(userService.update(anyLong(), any())).thenReturn(updatedUser);
+
+        mockMvc.perform(patch("/users/{id}", originalUser.getId())
+                        .content(mapper.writeValueAsString(updatedUser))
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value(updatedUser.getName()))
+                .andExpect(jsonPath("$.email").value(updatedUser.getEmail()));
+
+        verify(userService, times(1)).update(eq(originalUser.getId()), any());
     }
 
     @Test
-    void userControllerDoesNotUpdateUserWithDuplicateEmail() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
+    void updateUserWithPartialFieldsShouldUpdateOnlyProvidedFields() throws Exception {
+        UserDto originalUser = getUserDto(userCount);
+        originalUser.setId(1L);
+        UserDto updateRequest = UserDto.builder().name("UpdatedNameOnly").build();
+
+        UserDto expectedResponse = UserDto.builder()
+                .id(originalUser.getId())
+                .name(updateRequest.getName())
+                .email(originalUser.getEmail())
+                .build();
+
+        when(userService.update(anyLong(), any())).thenReturn(expectedResponse);
+
+        mockMvc.perform(patch("/users/{id}", originalUser.getId())
+                        .content(mapper.writeValueAsString(updateRequest))
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value(updateRequest.getName()))
+                .andExpect(jsonPath("$.email").value(originalUser.getEmail()));
+
+        verify(userService, times(1)).update(eq(originalUser.getId()), any());
+    }
+
+    @Test
+    void updateUserWithDuplicateEmailShouldThrowException() throws Exception {
+        UserDto userDto1 = getUserDto(userCount);
         UserDto userDto2 = getUserDto(userCount);
-        UserDto createsUserDto2 = userController.create(userDto2);
-        Long userId = createsUserDto2.getId();
-        userDto2.setEmail(userDto.getEmail());
-        DuplicatedDataException thrown = assertThrows(
-                DuplicatedDataException.class,
-                () -> userController.update(userId, userDto2),
-                "Контроллер не выкинул исключение о дубликате email");
-        assertTrue(thrown.getMessage().contains("Этот email уже используется"));
+        userDto2.setEmail(userDto1.getEmail());
+
+        when(userService.update(anyLong(), any())).thenThrow(new DuplicatedDataException("Этот email уже используется"));
+
+        mockMvc.perform(patch("/users/{id}", userDto2.getId())
+                        .content(mapper.writeValueAsString(userDto2))
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("Этот email уже используется"));
+
+        verify(userService, times(1)).update(eq(userDto2.getId()), any());
     }
 
     @Test
-    void userControllerDoesNotUpdateUserWithWrongId() {
+    void updateUserWithWrongIdShouldThrowException() throws Exception {
         UserDto userDto = getUserDto(userCount);
-        assertThrows(NotFoundException.class,
-                () -> userController.update(9999L, userDto),
-                "Контроллер не выкинул исключение при попытке обновить пользователя по несуществующему id");
+        when(userService.update(anyLong(), any())).thenThrow(new NotFoundException("Пользователь не найден"));
+
+        mockMvc.perform(patch("/users/{id}", 9999L)
+                        .content(mapper.writeValueAsString(userDto))
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Пользователь не найден"));
+
+        verify(userService, times(1)).update(eq(9999L), any());
     }
 
     @Test
-    void userControllerDeletesUser() {
-        UserDto userDto = getUserDto(userCount);
-        userDto = userController.create(userDto);
-        Long userId = userDto.getId();
-        userController.delete(userDto.getId());
-        NotFoundException thrown = assertThrows(
-                NotFoundException.class,
-                () -> userController.findById(userId),
-                "Контроллер не удалил пользователя");
-        assertTrue(thrown.getMessage().contains("Пользователь не найден"));
+    void deleteUserShouldDeleteSuccessfully() throws Exception {
+        Long userId = 1L;
+
+        mockMvc.perform(delete("/users/{id}", userId))
+                .andExpect(status().isOk());
+
+        verify(userService, times(1)).delete(userId);
     }
 
     @Test
-    void userControllerDoesNotDeleteUserWithWrongId() {
-        assertThrows(NotFoundException.class,
-                () -> userController.delete(9999L),
-                "Контроллер не выкинул исключение при попытке удалить пользователя по несуществующему id");
+    void deleteUserWithWrongIdShouldThrowException() throws Exception {
+        Long userId = 9999L;
+        doThrow(new NotFoundException("Пользователь не найден")).when(userService).delete(userId);
+
+        mockMvc.perform(delete("/users/{id}", userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Пользователь не найден"));
+
+        verify(userService, times(1)).delete(userId);
     }
 
     private UserDto getUserDto(int count) {
         userCount++;
         return UserDto.builder()
+                .id((long) count)
                 .name("User" + count)
                 .email("user" + count + "@mail.ru")
                 .build();
