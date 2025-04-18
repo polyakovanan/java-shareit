@@ -48,7 +48,6 @@ class ItemServiceTest {
     @InjectMocks
     private ItemServiceImpl itemService;
 
-    // Тесты для findAllOwned
     @Test
     void findAllOwnedShouldReturnItemsWithBookingsAndComments() {
         Long ownerId = 1L;
@@ -68,7 +67,6 @@ class ItemServiceTest {
         verify(itemRepository).findAllByOwnerId(ownerId);
     }
 
-    // Тесты для findById
     @Test
     void findByIdShouldReturnItemWithBookingsAndComments() {
         Long itemId = 1L;
@@ -97,7 +95,6 @@ class ItemServiceTest {
         assertEquals("Предмет не найден", exception.getMessage());
     }
 
-    // Тесты для create
     @Test
     void createShouldSaveNewItem() {
         Long userId = 1L;
@@ -161,7 +158,6 @@ class ItemServiceTest {
         assertEquals("Пользователь не найден", exception.getMessage());
     }
 
-    // Тесты для update
     @Test
     void updateShouldUpdateItemFields() {
         Long itemId = 1L;
@@ -235,7 +231,6 @@ class ItemServiceTest {
         assertEquals("Пользователь не владелец предмета", exception.getMessage());
     }
 
-    // Тесты для search
     @Test
     void searchShouldReturnAvailableItems() {
         String searchText = "search";
@@ -265,7 +260,6 @@ class ItemServiceTest {
         verifyNoInteractions(itemRepository);
     }
 
-    // Тесты для createComment
     @Test
     void createCommentShouldSaveComment() {
         Long itemId = 1L;
@@ -339,7 +333,6 @@ class ItemServiceTest {
         assertEquals("Пользователь не арендовал предмет или время аренды еще не вышло", exception.getMessage());
     }
 
-    // Вспомогательные методы
     private User createUser(Long id) {
         return User.builder()
                 .id(id)

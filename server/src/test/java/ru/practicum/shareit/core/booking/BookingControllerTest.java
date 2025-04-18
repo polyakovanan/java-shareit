@@ -282,7 +282,6 @@ class BookingControllerTest {
                 .andExpect(jsonPath("$.length()").value(2));
     }
 
-    // Вспомогательные методы
     private BookingInDto createBookingInDto(Long itemId, LocalDateTime start, LocalDateTime end) {
         return BookingInDto.builder()
                 .itemId(itemId)

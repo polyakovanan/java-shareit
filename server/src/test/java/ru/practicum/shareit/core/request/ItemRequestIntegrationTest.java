@@ -36,37 +36,30 @@ class ItemRequestIntegrationTest {
 
     @Test
     void createShouldCreateNewRequest() {
-        // Подготовка данных
         UserDto userDto = userService.create(getUserDto(userCount));
 
         ItemRequestDto requestDto = ItemRequestDto.builder()
                 .description("Need item for testing")
                 .build();
 
-        // Вызов метода контроллера
         requestDto = itemRequestController.create(requestDto, userDto.getId());
 
-        // Проверки
         assertNotNull(requestDto.getId());
         assertEquals("Need item for testing", requestDto.getDescription());
     }
 
     @Test
     void findAllOwnShouldReturnUserRequests() {
-        // Подготовка данных
         UserDto userDto = userService.create(getUserDto(userCount));
 
         ItemRequestDto requestDto = ItemRequestDto.builder()
                 .description("Need item for testing")
                 .build();
 
-        // Вызов метода контроллера
         requestDto = itemRequestController.create(requestDto, userDto.getId());
 
-        // Вызов метода контроллера
         List<ItemRequestDto> result = itemRequestController.findAllOwn(userDto.getId());
 
-        // Проверки
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(requestDto.getId(), result.get(0).getId());
@@ -74,7 +67,6 @@ class ItemRequestIntegrationTest {
 
     @Test
     void findByIdShouldReturnRequestWithItems() {
-        // Подготовка данных
         UserDto requesterUserDto = userService.create(getUserDto(userCount));
 
         ItemRequestDto request = itemRequestController.create(ItemRequestDto.builder()
@@ -87,10 +79,8 @@ class ItemRequestIntegrationTest {
 
         itemService.create(itemDto, ownerUserDto.getId());
 
-        // Вызов метода контроллера
         ItemRequestDto result = itemRequestController.findById(request.getId(), requesterUserDto.getId());
 
-        // Проверки
         assertNotNull(result);
         assertEquals(request.getId(), result.getId());
         assertEquals(1, result.getItems().size());
@@ -98,7 +88,6 @@ class ItemRequestIntegrationTest {
 
     @Test
     void findAllShouldReturnOtherUsersRequests() {
-        // Подготовка данных
         UserDto userDto1 = userService.create(getUserDto(userCount));
 
         UserDto userDto2 = userService.create(getUserDto(userCount));
@@ -113,22 +102,18 @@ class ItemRequestIntegrationTest {
 
         itemService.create(itemDto, ownerUserDto.getId());
 
-        // Вызов метода контроллера
         List<ItemRequestDto> result = itemRequestController.findAll(userDto2.getId());
 
-        // Проверки
         assertNotNull(result);
         assertEquals(1, result.size());
     }
 
     @Test
     void findByIdShouldThrowWhenRequestNotFound() {
-        // Подготовка данных
         UserDto userDto = userService.create(getUserDto(userCount));
         long userId = userDto.getId();
         long nonExistentId = 999L;
 
-        // Вызов и проверка исключения
         assertThrows(Exception.class, () ->
                 itemRequestController.findById(nonExistentId, userId));
     }

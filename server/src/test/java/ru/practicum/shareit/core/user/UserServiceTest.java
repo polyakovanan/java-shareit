@@ -27,7 +27,6 @@ class UserServiceTest {
 
     @Test
     void findByIdShouldReturnUserWhenExists() {
-        // given
         Long userId = 1L;
         User user = User.builder()
                 .id(userId)
@@ -37,10 +36,8 @@ class UserServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        // when
         UserDto result = userService.findById(userId);
 
-        // then
         assertNotNull(result);
         assertEquals(userId, result.getId());
         assertEquals("Test User", result.getName());
@@ -50,11 +47,9 @@ class UserServiceTest {
 
     @Test
     void findByIdShouldThrowExceptionWhenUserNotExists() {
-        // given
         Long userId = 999L;
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        // when & then
         NotFoundException exception = assertThrows(
                 NotFoundException.class,
                 () -> userService.findById(userId)
@@ -65,7 +60,6 @@ class UserServiceTest {
 
     @Test
     void createShouldSaveNewUser() {
-        // given
         UserDto userDto = UserDto.builder()
                 .name("New User")
                 .email("new@mail.ru")
@@ -80,10 +74,8 @@ class UserServiceTest {
         when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
         when(userRepository.findAllByEmail(any())).thenReturn(Optional.empty());
 
-        // when
         UserDto result = userService.create(userDto);
 
-        // then
         assertNotNull(result.getId());
         assertEquals("New User", result.getName());
         assertEquals("new@mail.ru", result.getEmail());
@@ -93,7 +85,6 @@ class UserServiceTest {
 
     @Test
     void createShouldThrowExceptionWhenEmailExists() {
-        // given
         UserDto userDto = UserDto.builder()
                 .name("New User")
                 .email("existing@mail.ru")
@@ -107,7 +98,6 @@ class UserServiceTest {
 
         when(userRepository.findAllByEmail("existing@mail.ru")).thenReturn(Optional.of(existingUser));
 
-        // when & then
         DuplicatedDataException exception = assertThrows(
                 DuplicatedDataException.class,
                 () -> userService.create(userDto)
@@ -119,7 +109,6 @@ class UserServiceTest {
 
     @Test
     void updateShouldUpdateAllFields() {
-        // given
         Long userId = 1L;
         User existingUser = User.builder()
                 .id(userId)
@@ -137,10 +126,8 @@ class UserServiceTest {
         when(userRepository.saveAndFlush(any())).thenReturn(existingUser);
         when(userRepository.findAllByEmail("new@mail.ru")).thenReturn(Optional.empty());
 
-        // when
         UserDto result = userService.update(userId, updateDto);
 
-        // then
         assertEquals(userId, result.getId());
         assertEquals("New Name", result.getName());
         assertEquals("new@mail.ru", result.getEmail());
@@ -151,7 +138,6 @@ class UserServiceTest {
 
     @Test
     void updateShouldUpdateOnlyName() {
-        // given
         Long userId = 1L;
         User existingUser = User.builder()
                 .id(userId)
@@ -167,10 +153,8 @@ class UserServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
         when(userRepository.saveAndFlush(any())).thenReturn(existingUser);
 
-        // when
         UserDto result = userService.update(userId, updateDto);
 
-        // then
         assertEquals(userId, result.getId());
         assertEquals("New Name", result.getName());
         assertEquals("old@mail.ru", result.getEmail());
@@ -180,7 +164,6 @@ class UserServiceTest {
 
     @Test
     void updateShouldUpdateOnlyEmail() {
-        // given
         Long userId = 1L;
         User existingUser = User.builder()
                 .id(userId)
@@ -197,10 +180,8 @@ class UserServiceTest {
         when(userRepository.saveAndFlush(any())).thenReturn(existingUser);
         when(userRepository.findAllByEmail("new@mail.ru")).thenReturn(Optional.empty());
 
-        // when
         UserDto result = userService.update(userId, updateDto);
 
-        // then
         assertEquals(userId, result.getId());
         assertEquals("Old Name", result.getName());
         assertEquals("new@mail.ru", result.getEmail());
@@ -211,7 +192,6 @@ class UserServiceTest {
 
     @Test
     void updateShouldThrowExceptionWhenUserNotExists() {
-        // given
         Long userId = 999L;
         UserDto updateDto = UserDto.builder()
                 .id(userId)
@@ -221,7 +201,6 @@ class UserServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        // when & then
         NotFoundException exception = assertThrows(
                 NotFoundException.class,
                 () -> userService.update(userId, updateDto)
@@ -233,7 +212,6 @@ class UserServiceTest {
 
     @Test
     void updateShouldThrowExceptionWhenEmailExists() {
-        // given
         Long userId = 1L;
         Long otherUserId = 2L;
         User existingUser = User.builder()
@@ -257,7 +235,6 @@ class UserServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
         when(userRepository.findAllByEmail("existing@mail.ru")).thenReturn(Optional.of(otherUser));
 
-        // when & then
         DuplicatedDataException exception = assertThrows(
                 DuplicatedDataException.class,
                 () -> userService.update(userId, updateDto)
@@ -270,7 +247,6 @@ class UserServiceTest {
 
     @Test
     void deleteShouldDeleteExistingUser() {
-        // given
         Long userId = 1L;
         User existingUser = User.builder()
                 .id(userId)
@@ -280,21 +256,17 @@ class UserServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
 
-        // when
         userService.delete(userId);
 
-        // then
         verify(userRepository, times(1)).findById(userId);
         verify(userRepository, times(1)).deleteById(userId);
     }
 
     @Test
     void deleteShouldThrowExceptionWhenUserNotExists() {
-        // given
         Long userId = 999L;
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        // when & then
         NotFoundException exception = assertThrows(
                 NotFoundException.class,
                 () -> userService.delete(userId)

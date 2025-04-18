@@ -23,14 +23,14 @@ public class ItemController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Object>  findById(@PathVariable Long id,
+    public ResponseEntity<Object> findById(@PathVariable Long id,
                             @RequestHeader("X-Sharer-User-Id") Long userId) {
         log.info("Get item by id = {},userId = {}", id, userId);
         return itemClient.findById(id, userId);
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Object>  search(@RequestParam String text,
+    public ResponseEntity<Object> search(@RequestParam String text,
                                 @RequestHeader("X-Sharer-User-Id") Long userId) {
 
         log.info("Search for items by text = {},userId = {}", text, userId);
@@ -38,14 +38,14 @@ public class ItemController {
     }
 
     @PostMapping
-    public ResponseEntity<Object>  create(@RequestBody @Valid ItemDto item,
+    public ResponseEntity<Object> create(@RequestBody @Valid ItemDto item,
                           @RequestHeader("X-Sharer-User-Id") Long userId) {
         log.info("Create new item = {},userId = {}", item, userId);
         return itemClient.createItem(item, userId);
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Object>  update(@PathVariable Long id,
+    public ResponseEntity<Object> update(@PathVariable Long id,
                           @RequestBody ItemDto item,
                           @RequestHeader("X-Sharer-User-Id") Long userId) {
         log.info("Update item with id = {}, {},userId = {}", id, item, userId);
@@ -53,7 +53,7 @@ public class ItemController {
     }
 
     @PostMapping("/{itemId}/comment")
-    public ResponseEntity<Object>  createComment(@PathVariable Long itemId, @RequestBody @Valid CommentDto commentDto,
+    public ResponseEntity<Object> createComment(@PathVariable Long itemId, @RequestBody @Valid CommentDto commentDto,
                                     @RequestHeader("X-Sharer-User-Id") Long userId) {
         log.info("Create comment for item with id = {}, {},userId = {}", itemId, commentDto, userId);
         return itemClient.createComment(itemId, commentDto, userId);
