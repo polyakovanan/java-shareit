@@ -4,8 +4,8 @@ spring:
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:5432/shareit
-    password: user
-    username: userpassword
+    password: shareit
+    username: shareit
   jpa:
     properties:
       hibernate:
