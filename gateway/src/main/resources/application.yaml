@@ -12,4 +12,4 @@ logging:
           interceptor: TRACE
           nodeValue: INFO
 shareit-server:
-  url: http://server:9090
+  url: http://localhost:9090
